@@ -1,0 +1,28 @@
+# Test-only property overrides.
+# Provides placeholder values so @NotBlank validation on AzureB2cProperties passes.
+# The JwtDecoder bean is replaced by @MockBean in all @WebMvcTest slices,
+# so these values are never used for actual network calls.
+
+azure:
+  b2c:
+    tenant-name: test-tenant
+    tenant-id: 00000000-0000-0000-0000-000000000000
+    client-id: test-client-id
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.example.b2cdemo: DEBUG
+    org.springframework.security: DEBUG

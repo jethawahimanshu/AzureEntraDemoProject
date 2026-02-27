@@ -1,0 +1,114 @@
+# =============================================================
+# Microsoft Entra External ID — Spring Boot Resource Server
+# (Azure AD B2C was retired for new customers May 2025;
+#  Entra External ID is the direct replacement)
+#
+# Required environment variables:
+#   ENTRA_TENANT_NAME   — subdomain, e.g. "myapp" (before .ciamlogin.com)
+#   ENTRA_TENANT_ID     — directory GUID: Entra Portal → Overview → Tenant ID
+#   ENTRA_CLIENT_ID     — App Registration → Application (client) ID
+#
+# Optional (defaults to H2 in-memory for local dev):
+#   DB_URL        — e.g. jdbc:postgresql://localhost:5432/b2cdb
+#   DB_USERNAME   — database username
+#   DB_PASSWORD   — database password
+#   DB_DRIVER     — JDBC driver class name
+# =============================================================
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    # Suppress Spring's default /error page — GlobalExceptionHandler owns all error responses
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+spring:
+  application:
+    name: entra-b2c-demo
+
+  # ---- DATABASE (H2 in-memory by default; swap env vars for PostgreSQL) ----
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:b2cdemodb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+
+  h2:
+    console:
+      # Enable only for local development — never in production
+      enabled: false
+
+  jpa:
+    hibernate:
+      # Flyway owns schema — Hibernate validates only
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_batch_fetch_size: 20
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+  # ---- SECURITY / OAUTH2 RESOURCE SERVER ----
+  # JwtDecoderConfig creates the decoder via OIDC discovery at startup.
+  # The issuer-uri below is kept for IDE auto-completion support only;
+  # the custom JwtDecoder bean in JwtDecoderConfig takes precedence at runtime.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: "https://${ENTRA_TENANT_NAME:placeholder}.ciamlogin.com/${ENTRA_TENANT_ID:placeholder}/v2.0"
+
+# ---- ENTRA EXTERNAL ID CUSTOM PROPERTIES (mapped to AzureB2cProperties record) ----
+azure:
+  b2c:
+    tenant-name: ${ENTRA_TENANT_NAME}
+    tenant-id: ${ENTRA_TENANT_ID}
+    client-id: ${ENTRA_CLIENT_ID}
+
+# ---- SPRINGDOC / SWAGGER UI ----
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    tags-sorter: alpha
+    operations-sorter: alpha
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+
+# ---- ACTUATOR ----
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Spring Boot 3.x API secured with Microsoft Entra External ID
+
+# ---- LOGGING ----
+logging:
+  level:
+    root: INFO
+    com.example.b2cdemo: DEBUG
+    org.springframework.security: INFO
+    # Uncomment to debug JWT validation failures:
+    # org.springframework.security.oauth2: DEBUG
+    # com.nimbusds: DEBUG
